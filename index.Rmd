@@ -1,5 +1,6 @@
 ---
 title: "IODS course project"
+author: "Anton Kunnari"
 output:
   html_document:
     theme: cosmo
