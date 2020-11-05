@@ -1,13 +1,117 @@
-# Insert chapter 2 title here
+# Chapter 2. Regression and model validation
 
-*Describe the work you have done this week and summarize your learning.*
+*This week I preprocessed a dataset by selecting a subset og variables and a lot of new variables. I used these in regression model which I then examined with diagnostic plots*
 
-- Describe your work and results clearly. 
-- Assume the reader has an introductory course level understanding of writing and reading R code as well as statistical methods.
-- Assume the reader has no previous knowledge of your data or the more advanced methods you are using.
+First, importing some necesasry R-packages
 
-```{r}
-date()
+```{r, message=FALSE}
+library(GGally)
+library(tidyverse)
 ```
 
-Here we go again...
+#### 1. 
+
+Let's read the data.
+
+```{r}
+# Read data
+dat <- read.csv("data/learning2014.csv")
+```
+
+First, let's examine the dimensions of the data and the variables it contains. 
+
+```{r}
+dim(dat)
+
+names(dat)
+```
+
+We observe that the data contains 166 observations and 7 variables. These variables are the responders gender and Age, Attitude towards statistics, Deep, Strategic, and Surface approach to learning, and (exam) Points
+
+#### 2.
+
+Then, we'll examine the data with graphical representation of the distributions and relationships of the variables.
+
+```{r, message=FALSE}
+# Graphical examination of the data
+dat %>%
+  suppressWarnings %>%
+  ggpairs
+```
+
+The sample seems to be mainly young people. Besides age, the variables look pretty normally distributed. We observe some large correlations between non-demographic variables, like between Attitude and exam points and Surface and Deep approach to learning (negative association).
+
+#### 3.
+
+##### Baseline model
+
+Let's choose three variables that exhibit largest correlations with Points-variable, and use those in regression model where Points is predicted. Thus, we choose Attitute, Stra and Surf as predictors. The model is ran below and low the model is The R-code for the 
+
+```{r}
+# Let's predict Exam scores by Surf, Deep, and Stra
+reg1 <- lm(Points ~ Attitude + Surf + Stra, data=dat)
+summary(reg1)
+```
+
+Attitude is related with exam scores significantly above chance level (t-values and the corresponding t-values). Also, quite obviously the overall model performs significantly better than chance. 
+
+Interpreting the model coefficients, the predicted baseline score (all predictor variables = 0),  predicted score is 11.02. Then each increment of one point in Attitude, Surf, Deep and changes this prediction by .34, -.04 and .10 respectively. 
+
+The R-squared indicates the proportion of the variance of the dependent variable that is expained by the whole model. In this case the proportion of explained variance is roughly 19%.
+
+Next, let's sequentially remove non-significant predictors starting with Surf.
+
+```{r}
+# Let's predict Exam scores by Surf, Deep, and Stra
+reg2 <- lm(Points ~ Attitude + Stra, data=dat)
+summary(reg2)
+```
+
+Lets then remove Stra and we'll likely arrive to our final model: 
+
+```{r}
+# Let's predict Exam scores by Surf, Deep, and Stra
+reg3 <- lm(Points ~ Attitude, data=dat)
+summary(reg3)
+```
+
+#### 4.
+
+Now we have a model where we predict exam scores with Attitude towards statistics. The model indicates that increasing this attitude variable by one point, predicted exam score increases by .35. This relationship between the variables accounts for roughly 19% of the variation in exam scores.
+
+#### 5.
+
+Finally, let's check the model assumptions using graphical methods. The model assumes that 1) There is no relationship (even non-linear) between the fitted values and residuals, 2) normality of the model residuals, and 3) no outliers (very influential observations with deviating patterns).
+
+First let's check the assumption that there is no systematic patterns between predicted values and model residuals. 
+
+```{r}
+res.dat <- data.frame(fitted = reg3$fitted.values, residuals = reg3$residuals)
+
+ggplot(res.dat, aes(x = fitted, y = residuals)) +
+  geom_point() +
+  geom_smooth() +
+  xlab("Fitted") + 
+  ylab("Residuals")
+```
+The pattern looks pretty random to me, so the assumption of independence of predictions and residuals seems to hold. Next let's examine whether the assumotion of normality of residuals holds by producing a qqplot. 
+
+```{r}
+ggplot(res.dat, aes(sample = scale(residuals))) +
+  geom_qq() +
+  geom_qq_line()
+```
+The obsevations mostly fall into the qq-line, except in the distribution tails. This means that the distribution of residuals is *roughly* normal. Finally let's examine potentially influetial observations (outliers) with residuals vs leverage plot.
+
+```{r}
+res.dat$leverage <- influence(reg3)$hat
+
+ggplot(res.dat, aes(x=leverage, y = scale(residuals))) +
+  geom_point() +
+  geom_smooth(method="loess", se=FALSE, color="red", size=0.5) +
+  geom_hline(yintercept = 0, size=0.2, lty="dashed") +
+  xlab("Leverage") +
+  ylab("Standardized residuals")
+```
+
+There seems to be no major outliers.
