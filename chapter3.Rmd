@@ -60,7 +60,7 @@ summary(res.log)
 
 As predicted, male gender predicts high alcohol use as well as (frequency of?) going out with friends. Contra to prediction, no evidence was found for higher alcohol use when parents live apart. The quality of family relationships was inversely related to alcohol consumption. Below are the model coefficients as odds ratios.
 
-```{r}
+```{r, message=FALSE}
 ecoef <- exp(coef(res.log))
 CI <- exp(confint(res.log))
 
@@ -82,6 +82,7 @@ cat_pred <- ifelse(predictions > 0.5, 1, 0)
 
 tab <- table(alc$high_use, cat_pred)
 colnames(tab) <- c(FALSE, TRUE)
+tab
 ```
 
 From this table we can compute the percentages for correct and incorrect predictions. Correct predictions those with the same row and column variables (both TRUE or both FALSE) are incorrect predictions if those conflict. The predictions contain 251 true negatives: when low alcohol consumption (row FALSE) is correctly predicted as such. They also contain 50 true positives: when high consumption (row TRUE) is predicted as high. Together these make up 301 correct predictions. When prediction is TRUE, but the actual value is false, this is a false positive prediction. There are 19 cases where an individual was predicted to have high consumption (column TRUE) when this was not actually the case. Likewise, in 62 cases alcohol consumption was predicted to be low (column FALSE), but was actually high. 
