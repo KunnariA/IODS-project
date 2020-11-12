@@ -2,7 +2,7 @@
 
 *This week I preprocessed a dataset by selecting a subset og variables and a lot of new variables. I used these in regression model which I then examined with diagnostic plots*
 
-First, importing some necesasry R-packages
+First, importing some necessary R-packages
 
 ```{r, message=FALSE}
 library(GGally)

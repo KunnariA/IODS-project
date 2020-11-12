@@ -1,0 +1,94 @@
+# Chapter 3. Logistic regression
+
+*This week I preprocessed a dataset by merging two datasets together and computing  og variables and a lot of new variables. I used these in regression model which I then examined with diagnostic plots*
+
+```{r, message=F, warning=F}
+library(GGally)
+library(tidyverse)
+```
+
+#### 2. 
+
+Let's open the data created in the first assignments of this week's exercises. 
+
+```{r}
+alc <- read.csv("data/student_alc.csv")
+var_names <- names(alc)
+```
+
+This data contains survey responses from Portugese students in secondary education.  The description of the variables is available at: https://archive.ics.uci.edu/ml/datasets/Student+Performance. 
+
+The full list of variables in the data: `r var_names`.
+
+#### 3.
+
+Next, let's predict **high_use** of alcohol with logistic regression by some other variables. Gender (**sex**) might be relevant here as I would imagine men to consume more alcohol. Going out with friends (**goout**) also sounds like it could be positively related to alcohol consumption. Third, I would imagine children from broken families where parents live apart (**Pstatus**) to consume more alcohol. Finally, and related to the former, the quality of family relationships (**famrel**) likely predict less alcohol consumption.
+
+#### 4.
+
+Most of the variables are categorical, so below are the class frequencies for those.
+
+```{r}
+# High alcohol use
+table(alc$high_use)
+
+# Gender (F = Female, M = Male)
+table(alc$sex)
+
+# Parent status (A = Apart, T = Together)
+table(alc$Pstatus)
+```
+
+While the gender ratio is close to 50/50, the other two variables are more skewed: there was over two times more low alcohol-consumin individuals compared to high consumption, and nine times more together-living parents. 
+
+Below is some graphical examination of the selected variables and their relationships. Warning: the graphic below is very messy.
+
+```{r, message=FALSE}
+alc %>%
+  dplyr::select(high_use, sex, goout, Pstatus, famrel) %>%
+  ggpairs
+```
+
+The relevant parts are the first row and the first column, which describe the relationships between the predicted variable and the predictors. We observe a difference in bar heights in the first panel of the second row suggesting different drinking pattern in men compared to women. Below in the first panel of the third row, lower values of "going out with friends" are more common in low alcohol consumption category compared to high consumption where the most common values are the greater ones. Relationship between parental living status and alcohol consumption is very difficult to appraise visually because of the very low amount of apart-living parents. Finally, while the higher values of family relationship quality are common in both alcohol consumption group, highest values seem to be relatively more common in low consumption group.
+
+#### 5. 
+
+```{r}
+res.log <- glm(high_use ~ sex + goout + Pstatus + famrel, data = alc, family="binomial")
+summary(res.log)
+```
+
+As predicted, male gender predicts high alcohol use as well as (frequency of?) going out with friends. Contra to prediction, no evidence was found for higher alcohol use when parents live apart. The quality of family relationships was inversely related to alcohol consumption. Below are the model coefficients as odds ratios.
+
+```{r}
+ecoef <- exp(coef(res.log))
+CI <- exp(confint(res.log))
+
+tab <- cbind(CI[,1], ecoef, CI[,2])
+tab <- round(tab, 2)
+colnames(tab) <- c("CI low", "OR", "CI high")
+tab
+```
+
+These model coefficients are interpreted as follows: the "baseline" odds ratio is .12 which means that high alcohol consumption is quite unlikely before accounting for the predictor variables. An odds ratio of .12 translates to `r round(.12 / (1 + .12), 2)*100`% chance of high consumption. The other coefficients tell by which factor this baseline chance is multiplied. For males, odds for high consumption is increased by factor of 2.61. For numeric variable **goout** an increase of 1 unit increases the odds for high consumption by factor of 2.24 and an unit increase in **famrel** decreses these odds by factor of .63. **Pstatus** was not a significant predictor as its confidence interval includes 1, so we don't interpret it here.  
+
+#### 6. 
+
+Below first the probabilities for high alcohol consumption are computed from the model, and then converted to dichotomous TRUE / FALSE predictions if this probability is over 50% for any given person. These dichotomous predictions are then cross-tabulated with actual data for evaluation of prediction accuracy.
+
+```{r}
+predictions <- predict(res.log, type="response")
+cat_pred <- ifelse(predictions > 0.5, 1, 0)
+
+tab <- table(alc$high_use, cat_pred)
+colnames(tab) <- c(FALSE, TRUE)
+```
+
+From this table we can compute the percentages for correct and incorrect predictions. Correct predictions those with the same row and column variables (both TRUE or both FALSE) are incorrect predictions if those conflict. The predictions contain 251 true negatives: when low alcohol consumption (row FALSE) is correctly predicted as such. They also contain 50 true positives: when high consumption (row TRUE) is predicted as high. Together these make up 301 correct predictions. When prediction is TRUE, but the actual value is false, this is a false positive prediction. There are 19 cases where an individual was predicted to have high consumption (column TRUE) when this was not actually the case. Likewise, in 62 cases alcohol consumption was predicted to be low (column FALSE), but was actually high. 
+
+These frequencies can be used to compute the accuracy of the model:
+
+```{r}
+(251 + 50) / (251 + 50 + 19 + 62)
+```
+Thus the model has roughly 79% "hit-rate", which is substantially higher than simply guessing with 50/50 odds. 
