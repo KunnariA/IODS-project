@@ -1,6 +1,6 @@
 # Chapter 3. Logistic regression
 
-*This week I preprocessed a dataset by merging two datasets together and computing  og variables and a lot of new variables. I used these in regression model which I then examined with diagnostic plots*
+*This week I preprocessed a dataset by merging two datasets together and then used this in a logistic regression model*
 
 ```{r, message=F, warning=F}
 library(GGally)
