@@ -1,6 +1,6 @@
 # Chapter 4. Clustering 
 
-**This week's exercise included joining two datasets by identifier variables, conducting logistic regression, and cross-validating the model**
+**This week's exercise included joining two datasets by identifier variables, conducting linear discriminant analysis and k-means clustering**
 
 
 ```{r, message=FALSE}
