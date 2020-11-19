@@ -1,0 +1,203 @@
+# Chapter 4. Clustering 
+
+**This week's exercise included joining two datasets by identifier variables, conducting logistic regression, and cross-validating the model**
+
+
+```{r, message=FALSE}
+library(GGally)
+library(MASS)
+library(tidyverse)
+```
+
+## 1. 
+
+Here we explore the **Boston** data from **MASS** package. First we copy the dataframe to new variable **boston** to make accessing it easier.
+
+```{r}
+boston <- MASS::Boston
+```
+
+## 2. Data examination
+
+First, a quick examination of the structure and contents of the data. 
+
+```{r}
+# Dimensions of the data
+dims <- dim(boston)
+
+# Varibales of the data
+var_names <- names(boston)
+```
+
+The data has `r dims[1]` observations and `r dims[2]` variables. The variables contain information (copied from data documentation) about: per capita crime rate by town (**crim**), proportion of residential land zoned for lots over 25,000 sq.ft (**zn**), proportion of non-retail business acres per town (**indus**), Charles River dummy variable (= 1 if tract bounds river; 0 otherwise, **chas**), nitrogen oxides concentration (parts per 10 million; **nox**), average number of rooms per dwelling (**rm**), proportion of owner-occupied units built prior to 1940 (**age**), weighted mean of distances to five Boston employment centres (**dis**), index of accessibility to radial highways (**rad**), full-value property-tax rate per \$10,000 (**tax**), pupil-teacher ratio by town (**ptratio**), 1000(Bk - 0.63)^2 where Bk is the proportion of blacks by town (**black**), lower status of the population (percent; **lstat**), median value of owner-occupied homes in \$1000s (**medv**).
+
+## 3. Graphical overview of the data
+
+Pairwise scatterplots for all the variables is presented below.
+
+```{r, message=FALSE}
+GGally::ggpairs(boston, 
+                lower = list(continuous = wrap("points", size=0.1)),
+                upper = list(continuous = wrap("cor", size=0)))
+```
+
+On the density plots on the plot diagonal, we see the distributions of the variables. Some of these are super skewed, resembling exponential or power-law distribution. Others look remotely or close to normal. Some seem to be double-peaked. The relationships between the variables are too numerous to describe in detail here, but we see many interesting patterns. Some resemble linear relationships but many don't, casting doubt on using standard linear methods for these data.
+
+## 4. Data transformation
+
+Next, we'll do z-transformation for each variable in the data, and save the resulting dataframe to a new object **boston_z**. Below is a brief summary of the standardized variables, with main value being infomation about quantile thresholds that describe the shapes of the distributions. In some variables these are very asymmetrical in relation to median, indicating great skewness already seen in density plots. Some max values are also ridiculously huge (like in **crim**) considering these are z-scaled variables. This means that the variable has at least one very influential observation.
+
+```{r}
+boston_z <- scale(boston)
+boston_z <- as.data.frame(boston_z)
+summary(boston_z)
+```
+
+Below, a categorical variable **crimeQ** is created by using quantiles as break-points. 
+
+```{r}
+# Compute quantiles for variable crim
+q <- quantile(boston_z$crim)
+
+# Create new categorical variable for crime quantiles
+# Drop the old crim variable
+boston_z <- boston_z %>%
+  mutate(crimeQ = case_when(crim < q[2] ~ 1, 
+                            crim >= q[2] & crim < q[3] ~ 2,
+                            crim >= q[3] & crim < q[4] ~ 3,
+                            crim >= q[4] ~ 4)) %>%
+  dplyr::select(-crim)
+```
+
+Finally, divide the modified data into training data and test data.
+
+```{r}
+# N needed for training data
+n_train <- round(0.8*dim(boston_z)[1])
+
+# Index vector for training data
+i_train <- sample(1:dim(boston)[1], n_train)
+
+# Use the vector created above to split data into training and test data
+boston_train <- boston_z[i_train,]
+boston_test <- boston_z[-i_train,]
+```
+
+## 5. 
+
+Let's computationally create the formula for discriminant analysis. It's less tedious this way.
+
+```{r}
+predictors <- paste(names(boston_train[,-14]), collapse="+")
+formula <- as.formula(paste("crimeQ", predictors, sep="~"))
+print(formula)
+```
+
+Using this formula and the transformed data, let's do linear discriminant analysis, where quantilized crime rate is predicted by all other variables. We know quantilized variables should have perfectly even 25/25/25/25 distribution, so let's use these as priors in the model to account for any imperfections in randomization.
+
+```{r}
+res.lda <- MASS::lda(formula, 
+                     data=boston_train, 
+                     prior=c(0.25, 0.25, 0.25, 0.25))
+```
+
+Next, let's draw a biplot, ggplot style.
+
+```{r}
+# Predictions from LDA for training data
+preds.lda <- predict(res.lda)
+
+dat <- as.data.frame(cbind(preds.lda$class, preds.lda$x))
+names(dat) <- c("class", "LD1", "LD2", "LD3")
+dat$class <- as.factor(dat$class)
+
+dat %>%
+  ggpairs(columns = 2:4, aes(color=class), upper="blank")
+```
+
+## 6. Cross-validation
+
+The real categorical variable **crimeQ** is removed from the test data, and saved as a separate object "correct". 
+
+```{r}
+# Make categorical crime variable a separate object
+correct <- boston_test$crimeQ
+
+# Remove the categorical crime variable from test data
+boston_test <- boston_test %>%
+  dplyr::select(-crimeQ)
+```
+
+Create predicted **crimeQ**-categories for the test data using the LDA model specified above. The predictions of this model are then cross-tabulated with real category values to assess the predictive accuracy of the model. 
+
+```{r}
+preds <- predict(res.lda, newdata = boston_test)
+prediction <- preds$class
+
+tab <- table(prediction, correct)
+tab
+```
+
+The correct predictions lie on the diagonal. We see that majority of the observations fall there, with several being just over or under diagonal. This means that the prediction errors are never completely opposite from the real value (for example category value 1 is predicted as 4 or vice versa). The prediction errors seem somewhat symmetrical regarding the category number, with rather similar number of "over- and underpredicted" observations.
+
+By dividing the sum of numbers on the diagonal by the sum of all table values, we get the predictive accuracy of the model: the proportion of correctly predicted categories. 
+
+```{r}
+sum(diag(tab)) / sum(tab)
+```
+Considering that by guessing the accuracy would be around 25%, the model seems to do pretty good job with almost 70% accuracy.
+
+## 7. K-means clustering
+
+Euclidean distances for scaled Boston data
+
+```{r}
+boston_z <- scale(MASS::Boston)
+
+dist_mat <- dist(boston_z, method="euclidean")
+summary(dist_mat)
+```
+
+K-means clustering with 5 clusters.
+
+```{r}
+k.res <- kmeans(boston_z, centers = 5)
+```
+
+Evaluation of proper number of clusters 
+
+```{r}
+k_max = 10
+
+# Code from DataCamp
+twcss <- sapply(1:k_max, function(k){kmeans(boston_z, k)$tot.withinss})
+plot(twcss)
+```
+
+Greatest drop in total within category SS occurs at 2 clusters. This seems the appropriate number.
+
+## Bonus
+
+Below the data is first clustered with k-means with 5 clusters. Then LDA is fitted for the data using the created clusters as target categories. Created clusters and the categories predicted by LDA is presented in cross-tabulation below.
+
+```{r}
+# New k-means clustering with 5 clusters
+k.res2 <- kmeans(boston_z, centers = 5)
+
+predictors <- paste(names(as.data.frame(boston_z)), collapse="+")
+formula <- as.formula(paste("k.res2cluster", predictors, sep="~"))
+
+lda.res2 <- lda(k.res2$cluster ~ boston_z)
+preds2 <- predict(lda.res2)$class
+
+tab <- table(preds2, k.res2$cluster)
+tab
+```
+
+Most values fall on the diagonal, so prediction error seems to be very rare using this type of analysis. Finally the model accuracy (of LDA using kmeans as criterion) is calculated in same way as above. 
+
+```{r}
+sum(diag(tab)) / sum(tab)
+```
+
+The model (LDA) has almost perfect accuracy predicting the categories created by k-means algorithm.
