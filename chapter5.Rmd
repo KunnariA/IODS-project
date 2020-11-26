@@ -1,0 +1,67 @@
+# Chapter 5 Dimensionality reduction
+
+**Description about week 5**
+
+```{r, message=FALSE}
+library(FactoMineR)
+library(GGally)
+library(tidyverse)
+```
+
+## 1. Overview of the data
+
+```{r, message=FALSE}
+# Read data
+dat <- read.csv("data/human.csv", row.names = "X")
+
+GGally::ggpairs(dat, lower = list(continuous = wrap("points", size=0.1)))
+```
+
+Some distributions are very skewed, resembling exponential or power-law distribution. Others look somewhat normal. Most correlations between the variables are notable, with some exeptions being LabRatio~SecRatio, EduExp~LabRatio and AdoBrt~RepPar.
+
+## 2. Principal components analysis
+
+Let's do principal components analysis to the human data.
+
+```{r}
+res.pca <- princomp(dat)
+summary(res.pca)
+res.pca$loadings
+```
+The first component captures ~77% of the variability, and the second 22%. The rest are negligible. The biplot between 1st and 2nd PC is presented below.
+
+```{r, warning=FALSE}
+biplot(res.pca, cex = c(0.8, 1), xlab="PC1", ylab = "PC2")
+```
+
+## 3. Standaridzed data
+
+Next we do the same thing as above, but with standardized data
+
+```{r}
+# Standardize the data
+dat_z <- scale(dat)
+
+# Principal component analysiks
+res.pca2 <- princomp(dat_z)
+summary(res.pca2)
+res.pca2$loadings
+```
+And the corresponding biplot:
+
+```{r, warning=FALSE}
+biplot(res.pca2, cex = c(0.8, 1), xlab="PC1", ylab = "PC2")
+```
+
+## 4. Interpretation
+
+In the first analysis (without standardization) the first component explains majority of variance. However, only few variables load on this component, and maternal mortality loads on the component very strongly. GNI variable loads on the second component very strongly. It almost seems that each component roughly corresponds to each variable in the data
+
+In the latter results, both variance explained and variable loadings is spread bit more evenly across components. I guess this has something to do with the fact that maternal mortality had the greatest variance in the original data, and thus the corresponding component explains the most variance simply because of that. Now when variables are standardized, unequal variances do not confound the analysis anymore. 
+
+In this new analysis, the first component has loadings from gender ratio in secondary education, education expectancy, life expectancy (positive), and GNI, maternal mortality, and adolecent birth rate (negative). This component seems to correspond roughly to human development index. The second component has greatest loadings from gender ratios in secondary education and representation in parlament, and seems to correspond to gender 
+
+
+## 5. Multiple Correspondence Analysis
+
+Couldn't get this to work.

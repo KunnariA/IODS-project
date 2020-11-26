@@ -185,7 +185,7 @@ Below the data is first clustered with k-means with 5 clusters. Then LDA is fitt
 k.res2 <- kmeans(boston_z, centers = 5)
 
 predictors <- paste(names(as.data.frame(boston_z)), collapse="+")
-formula <- as.formula(paste("k.res2cluster", predictors, sep="~"))
+formula <- as.formula(paste("k.res2$cluster", predictors, sep="~"))
 
 lda.res2 <- lda(k.res2$cluster ~ boston_z)
 preds2 <- predict(lda.res2)$class

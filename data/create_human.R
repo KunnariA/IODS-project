@@ -35,5 +35,37 @@ gii <- gii %>%
 
 human <- inner_join(hd, gii, by = "Country")
 
+
+## Week 5
+
+# Convert GNI to numeric
+human$GNIn <- as.numeric(gsub(",", ".", human$GNI))
+
+# Select only needed variables
+human <- human %>%
+  dplyr::select(Country, SecRatio, LabRatio, EduExp, LifeExp, GNIn, 
+                MatMortal, AdoBrt, RepPar)
+
+# Remove observations with missing values
+human <- na.omit(human)
+
+# Remove the regional observations: "Arab states", "East Asia and the Pacific", 
+# "Europe and Central Asia", "Latin America and the Caribbean" "South Asia", 
+# "Sub-Saharan Africa", "World"
+
+regions <- c("Arab states", "East Asia and the Pacific", 
+             "Europe and Central Asia", "Latin America and the Caribbean", 
+             "South Asia", "Sub-Saharan Africa", "World")
+
+human <- human %>% 
+  dplyr::filter(!(Country %in% regions))
+
+# Make country names the row names
+rownames(human) <- human$Country
+
+# Remove country variable
+human <- human %>%
+  dplyr::select(-Country)
+
 # Save data as csv
 write.csv(human, "human.csv")
