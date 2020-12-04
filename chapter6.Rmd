@@ -1,0 +1,183 @@
+# Chapter 6. Analysis of longitudinal data
+
+```{r}
+library(patchwork)
+library(tidyverse)
+```
+
+## 1. Read the data.
+
+Read the data from data wrangling exercise and re-factor categorical variables.
+
+```{r}
+BPRS_long <- read.csv("data/BPRS_long.csv")
+RATS_long <- read.csv("data/RATS_long.csv")
+
+BPRS_long <- BPRS_long %>% 
+  dplyr::mutate(subject = as.factor(subject),
+                treatment = as.factor(treatment),
+                week = as.factor(week))
+
+RATS_long <- RATS_long %>% 
+  dplyr::mutate(ID = as.factor(ID),
+                Group = as.factor(Group),
+                week = as.factor(week))
+```
+
+Visualize the response patterns of each respondent.
+
+```{r}
+g1 <- ggplot(BPRS_long, aes(x = week, y = value, group=subject, color=subject)) +
+  geom_line() +
+  facet_wrap(~treatment) +
+  xlab("Week") +
+  ylab("Symptoms") +
+  theme_bw() +
+  theme(legend.position = "none",
+        axis.text.x = element_blank(),
+        axis.title.x = element_blank()
+        ) 
+g2 <- ggplot(BPRS_long, aes(x = week, y = value)) +
+  geom_boxplot() +
+  facet_wrap(~treatment) +
+  xlab("Week") +
+  ylab("Symptoms") +
+  theme_bw() +
+  theme(legend.position = "none",
+        axis.text.x = element_text(angle=90))
+
+g1 / g2
+```
+And for the RATS-data:
+
+```{r}
+g1 <- ggplot(RATS_long, aes(x = week, y = value, group=ID, color=ID)) +
+  geom_line() +
+  facet_wrap(~Group) +
+  xlab("Week") +
+  ylab("Symptoms") +
+  theme_bw() +
+  theme(legend.position = "none",
+        axis.text.x = element_blank(),
+        axis.title.x = element_blank()
+        ) 
+g2 <- ggplot(RATS_long, aes(x = week, y = value)) +
+  geom_boxplot() +
+  facet_wrap(~Group) +
+  xlab("Week") +
+  ylab("Symptoms") +
+  theme_bw() +
+  theme(legend.position = "none",
+        axis.text.x = element_text(angle=90))
+
+g1 / g2
+```
+
+Standardize the datasets so that each weeks values are z-transformed independently from each other.
+
+```{r}
+BPRS_long_z <- BPRS_long %>%
+  group_by(week) %>%
+  mutate(value = scale(value)) %>%
+  ungroup()
+
+RATS_long_z <- RATS_long %>%
+  group_by(week) %>%
+  mutate(value = scale(value)) %>%
+  ungroup()
+```
+
+Visualization for standardized data.
+
+```{r}
+g1 <- ggplot(BPRS_long_z, aes(x = week, y = value, group=subject, color=subject)) +
+  geom_line() +
+  facet_wrap(~treatment) +
+  xlab("Week") +
+  ylab("Symptoms") +
+  theme_bw() +
+  theme(legend.position = "none",
+        axis.text.x = element_blank(),
+        axis.title.x = element_blank()
+        ) 
+g2 <- ggplot(BPRS_long_z, aes(x = week, y = value)) +
+  geom_boxplot() +
+  facet_wrap(~treatment) +
+  xlab("Week") +
+  ylab("Symptoms") +
+  theme_bw() +
+  theme(legend.position = "none",
+        axis.text.x = element_text(angle=90))
+
+g1 / g2
+```
+
+```{r}
+g1 <- ggplot(RATS_long_z, aes(x = week, y = value, group=ID, color=ID)) +
+  geom_line() +
+  facet_wrap(~Group) +
+  xlab("Week") +
+  ylab("Symptoms") +
+  theme_bw() +
+  theme(legend.position = "none",
+        axis.text.x = element_blank(),
+        axis.title.x = element_blank()
+        ) 
+g2 <- ggplot(RATS_long_z, aes(x = week, y = value)) +
+  geom_boxplot() +
+  facet_wrap(~Group) +
+  xlab("Week") +
+  ylab("Symptoms") +
+  theme_bw() +
+  theme(legend.position = "none",
+        axis.text.x = element_text(angle=90))
+
+g1 / g2
+```
+
+## Summary method
+
+Let's produce summary tables from original datasets.
+
+```{r}
+BPRSS <- BPRS_long %>%
+  group_by(treatment, week) %>%
+  summarise(mean = mean(value),
+            sd = sd(value),
+            n = length(value),
+            se = sd / sqrt(n) ) %>%
+  ungroup()
+
+RATSS <- RATS_long %>%
+  group_by(Group, week) %>%
+  summarise(mean = mean(value),
+            sd = sd(value),
+            n = length(value),
+            se = sd / sqrt(n) ) %>%
+  ungroup()
+```
+Summary graph for BPRS-data.
+
+```{r}
+ggplot(BPRSS, aes(x = week, y = mean, linetype = treatment, shape = treatment)) +
+  geom_line() +
+  scale_linetype_manual(values = c(1,2)) +
+  geom_point(size=3) +
+  scale_shape_manual(values = c(1,2)) +
+  geom_errorbar(aes(ymin=mean-se, ymax=mean+se, linetype="1"), width=0.3) +
+  theme(legend.position = c(0.8,0.8)) +
+  scale_y_continuous(name = "mean(bprs) +/- se(bprs)")
+```
+
+Summary graph for RATS-data
+
+```{r, warning=FALSE, message=FALSE}
+ggplot(RATSS, aes(x = week, y = mean, linetype = Group, shape = Group)) +
+  geom_line() +
+  scale_linetype_manual(values = c(1,2, 3)) +
+  geom_point(size=3) +
+  scale_shape_manual(values = c(1,2,3)) +
+  geom_errorbar(aes(ymin=mean-se, ymax=mean+se, linetype="1"), width=0.3) +
+  theme(legend.position = c(0.8,0.8, 0.8)) +
+  scale_y_continuous(name = "mean(rats) +/- se(rats)")
+```
